@@ -227,7 +227,6 @@ open class TLPhotosPickerViewController: UIViewController {
         } else if self.navigationBarTopConstraint.constant == 0 {
             self.navigationBarTopConstraint.constant = 20
         }
-        reloadTableView()
     }
     
     override open func viewWillAppear(_ animated: Bool) {
