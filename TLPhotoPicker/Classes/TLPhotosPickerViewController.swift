@@ -50,7 +50,7 @@ extension TLPhotosPickerLogDelegate {
 }
 
 public struct TLPhotosPickerConfigure {
-    public var customLoclizedTitle: [String: String] = ["Camera Roll": "Camera Roll"]
+    public var customLocalizedTitle: [String: String] = ["Camera Roll": "Camera Roll"]
     public var tapHereToChange = "Tap here to change"
     public var cancelTitle = "Cancel"
     public var doneTitle = "Done"
@@ -140,7 +140,7 @@ open class TLPhotosPickerViewController: UIViewController {
     
     public weak var delegate: TLPhotosPickerViewControllerDelegate? = nil
     public weak var logDelegate: TLPhotosPickerLogDelegate? = nil
-    public var selectedAssets = [TLPHAsset]()
+    open var selectedAssets = [TLPHAsset]()
     public var configure = TLPhotosPickerConfigure()
     public var customDataSouces: TLPhotopickerDataSourcesProtocol? = nil
     
@@ -219,6 +219,23 @@ open class TLPhotosPickerViewController: UIViewController {
         return self.configure.supportedInterfaceOrientations
     }
     
+    open override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        if #available(iOS 13.0, *) {
+            let userInterfaceStyle = self.traitCollection.userInterfaceStyle
+            let image = TLBundle.podBundleImage(named: "pop_arrow")
+            if userInterfaceStyle.rawValue == 2 {
+                self.popArrowImageView.image = image?.colorMask(color: .systemBackground)
+                self.view.backgroundColor = .black
+                self.collectionView.backgroundColor = .black
+            }else {
+                self.popArrowImageView.image = image?.colorMask(color: .white)
+                self.view.backgroundColor = .white
+                self.collectionView.backgroundColor = .white
+            }
+        }
+    }
+    
     override open func didReceiveMemoryWarning() {
         super.didReceiveMemoryWarning()
         self.stopPlay()
@@ -270,6 +287,13 @@ open class TLPhotosPickerViewController: UIViewController {
     }
     
     private func findIndexAndReloadCells(phAsset: PHAsset) {
+        if
+            self.configure.groupByFetch != nil,
+            let indexPath = self.focusedCollection?.findIndex(phAsset: phAsset)
+        {
+            self.collectionView.reloadItems(at: [indexPath])
+            return
+        }
         if
             var index = self.focusedCollection?.fetchResult?.index(of: phAsset),
             index != NSNotFound
@@ -342,7 +366,7 @@ extension TLPhotosPickerViewController {
         self.indicator.startAnimating()
         let tapGesture = UITapGestureRecognizer(target: self, action: #selector(titleTap))
         self.titleView.addGestureRecognizer(tapGesture)
-        self.titleLabel.text = self.configure.customLoclizedTitle["Camera Roll"]
+        self.titleLabel.text = self.configure.customLocalizedTitle["Camera Roll"]
         self.subTitleLabel.text = self.configure.tapHereToChange
         self.cancelButton.title = self.configure.cancelTitle
         self.doneButton.title = self.configure.doneTitle
@@ -714,14 +738,57 @@ extension TLPhotosPickerViewController: PHLivePhotoViewDelegate {
 
 // MARK: - PHPhotoLibraryChangeObserver
 extension TLPhotosPickerViewController: PHPhotoLibraryChangeObserver {
-    public func photoLibraryDidChange(_ changeInstance: PHChange) {
-        guard getfocusedIndex() == 0 else {
-            return
+    private func getChanges(_ changeInstance: PHChange) -> PHFetchResultChangeDetails<PHAsset>? {
+        func isChangesCount<T>(changeDetails: PHFetchResultChangeDetails<T>?) -> Bool {
+            guard let changeDetails = changeDetails else {
+                return false
+            }
+            let before = changeDetails.fetchResultBeforeChanges.count
+            let after = changeDetails.fetchResultAfterChanges.count
+            return before != after
         }
-        let addIndex = self.usedCameraButton ? 1 : 0
+        
+        func isAlbumsChanges() -> Bool {
+            guard let albums = self.photoLibrary.albums else {
+                return false
+            }
+            let changeDetails = changeInstance.changeDetails(for: albums)
+            return isChangesCount(changeDetails: changeDetails)
+        }
+        
+        func isCollectionsChanges() -> Bool {
+            for fetchResultCollection in self.photoLibrary.assetCollections {
+                let changeDetails = changeInstance.changeDetails(for: fetchResultCollection)
+                if isChangesCount(changeDetails: changeDetails) == true {
+                    return true
+                }
+            }
+            return false
+        }
+        
+        if isAlbumsChanges() || isCollectionsChanges() {
+            DispatchQueue.main.async {
+                self.albumPopView.show(false, duration: self.configure.popup.duration)
+                self.photoLibrary.fetchCollection(configure: self.configure)
+            }
+            return nil
+        }else {
+            guard let changeFetchResult = self.focusedCollection?.fetchResult else { return nil }
+            guard let changes = changeInstance.changeDetails(for: changeFetchResult) else { return nil }
+            return changes
+        }
+    }
+    
+    public func photoLibraryDidChange(_ changeInstance: PHChange) {
+        var addIndex = 0
+        if getfocusedIndex() == 0 {
+            addIndex = self.usedCameraButton ? 1 : 0
+        }
         DispatchQueue.main.async {
-            guard let changeFetchResult = self.focusedCollection?.fetchResult else { return }
-            guard let changes = changeInstance.changeDetails(for: changeFetchResult) else { return }
+            guard let changes = self.getChanges(changeInstance) else {
+                return
+            }
+            
             if changes.hasIncrementalChanges, self.configure.groupByFetch == nil {
                 var deletedSelectedAssets = false
                 var order = 0
@@ -1116,5 +1183,22 @@ extension Array where Element == PopupConfigure {
             }
         }
         return result
+    }
+}
+
+extension UIImage {
+    public func colorMask(color:UIColor) -> UIImage {
+        var result: UIImage?
+        let rect = CGRect(x:0, y:0, width:size.width, height:size.height)
+        UIGraphicsBeginImageContextWithOptions(rect.size, false, scale)
+        if let c = UIGraphicsGetCurrentContext() {
+            self.draw(in: rect)
+            c.setFillColor(color.cgColor)
+            c.setBlendMode(.sourceAtop)
+            c.fill(rect)
+            result = UIGraphicsGetImageFromCurrentImageContext()
+        }
+        UIGraphicsEndImageContext()
+        return result ?? self
     }
 }

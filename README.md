@@ -242,7 +242,13 @@ public struct TLPHAsset {
     // parmeter : convertLivePhotosToJPG
     // false : If you want mov file at live photos
     // true  : If you want png file at live photos ( HEIC )
-    public func tempCopyMediaFile(videoRequestOptions: PHVideoRequestOptions? = nil, imageRequestOptions: PHImageRequestOptions? = nil, exportPreset: String = AVAssetExportPresetHighestQuality, convertLivePhotosToJPG: Bool = false, progressBlock:((Double) -> Void)? = nil, completionBlock:@escaping ((URL,String) -> Void)) -> PHImageRequestID?
+    public func tempCopyMediaFile(videoRequestOptions: PHVideoRequestOptions? = nil, 
+                                  imageRequestOptions: PHImageRequestOptions? = nil,
+                                  livePhotoRequestOptions: PHLivePhotoRequestOptions? = nil,
+                                  exportPreset: String = AVAssetExportPresetHighestQuality, 
+                                  convertLivePhotosToJPG: Bool = false, 
+                                  progressBlock:((Double) -> Void)? = nil, 
+                                  completionBlock:@escaping ((URL,String) -> Void)) -> PHImageRequestID?
     //Apparently, This is not the only way to export video.
     //There is many way that export a video.
     //This method was one of them.
@@ -267,7 +273,7 @@ var configure = TLPhotosPickerConfigure()
 viewController.configure = configure
 
 public struct TLPhotosPickerConfigure {
-    public var customLoclizedTitle: [String: String] = ["Camera Roll": "Camera Roll"] // Set [:] if you want use default localized title of album 
+    public var customLocalizedTitle: [String: String] = ["Camera Roll": "Camera Roll"] // Set [:] if you want use default localized title of album
     public var tapHereToChange = "Tap here to change"
     public var cancelTitle = "Cancel"
     public var doneTitle = "Done"
