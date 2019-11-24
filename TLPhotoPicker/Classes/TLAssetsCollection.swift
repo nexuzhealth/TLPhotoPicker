@@ -178,6 +178,7 @@ public struct TLPHAsset {
                                   livePhotoRequestOptions: PHLivePhotoRequestOptions? = nil,
                                   exportPreset: String = AVAssetExportPresetHighestQuality,
                                   convertLivePhotosToJPG: Bool = false,
+                                  alwaysConvertToJPG: Bool = true,
                                   progressBlock:((Double) -> Void)? = nil,
                                   completionBlock:@escaping ((URL,String) -> Void)) -> PHImageRequestID? {
         guard let phAsset = self.phAsset else { return nil }
@@ -253,7 +254,7 @@ public struct TLPHAsset {
                 do {
                     var data = data
                     let needConvertLivePhotoToJPG = phAsset.mediaSubtypes.contains(.photoLive) == true && convertLivePhotosToJPG == true
-                    if needConvertLivePhotoToJPG, let imgData = data, let rawImage = UIImage(data: imgData)?.upOrientationImage() {
+                    if needConvertLivePhotoToJPG || alwaysConvertToJPG, let imgData = data, let rawImage = UIImage(data: imgData)?.upOrientationImage() {
                         data = rawImage.jpegData(compressionQuality: 1)
                     }
                     try data?.write(to: localURL)
